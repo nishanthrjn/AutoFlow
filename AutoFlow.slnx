@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AutoFlow.Api/AutoFlow.Api.csproj" />
+    <Project Path="src/AutoFlow.Domain/AutoFlow.Domain.csproj" />
+    <Project Path="src/AutoFlow.Engine/AutoFlow.Engine.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AutoFlow.Engine.Tests/AutoFlow.Engine.Tests.csproj" />
+  </Folder>
+</Solution>
