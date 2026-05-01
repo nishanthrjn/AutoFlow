@@ -3,6 +3,7 @@
     <Project Path="src/AutoFlow.Api/AutoFlow.Api.csproj" />
     <Project Path="src/AutoFlow.Domain/AutoFlow.Domain.csproj" />
     <Project Path="src/AutoFlow.Engine/AutoFlow.Engine.csproj" />
+    <Project Path="src/AutoFlow.Simulator/AutoFlow.Simulator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AutoFlow.Engine.Tests/AutoFlow.Engine.Tests.csproj" />
