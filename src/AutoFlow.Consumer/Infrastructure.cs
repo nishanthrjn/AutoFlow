@@ -1,7 +1,6 @@
 using AutoFlow.Domain.Entities;
 using AutoFlow.Domain.Enums;
 using AutoFlow.Engine;
-using Microsoft.Extensions.Logging;
 
 namespace AutoFlow.Consumer;
 
@@ -27,23 +26,6 @@ public class InMemoryStepRepository : IStepRepository
         if (!_store.ContainsKey(key)) _store[key] = new();
         _store[key].Add(status);
         Console.WriteLine($"  [State] {stepId} → {status}");
-        return Task.CompletedTask;
-    }
-}
-
-public class LoggingCompensationHandler : ICompensationHandler
-{
-    private readonly ILogger<LoggingCompensationHandler> _logger;
-
-    public LoggingCompensationHandler(ILogger<LoggingCompensationHandler> logger)
-        => _logger = logger;
-
-    public Task CompensateAsync(WorkflowInstance instance, string failedStepId,
-                                Exception reason, CancellationToken ct)
-    {
-        _logger.LogError(
-            "COMPENSATION triggered for step [{StepId}] on instance [{InstanceId}]. Reason: {Reason}",
-            failedStepId, instance.Id, reason.Message);
         return Task.CompletedTask;
     }
 }
