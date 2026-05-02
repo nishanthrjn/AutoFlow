@@ -1,10 +1,12 @@
 using System.Net.Http.Json;
 using AutoFlow.Domain.Entities;
 
-namespace AutoFlow.Engine;   // ← same namespace as IWorkflowAction, not .Actions
+namespace AutoFlow.Engine;
 
 public class HttpWorkflowAction : IWorkflowAction
 {
+    public string ActionType => "Http";
+
     private readonly IHttpClientFactory _httpClientFactory;
 
     public HttpWorkflowAction(IHttpClientFactory httpClientFactory)
@@ -23,19 +25,14 @@ public class HttpWorkflowAction : IWorkflowAction
         step.Parameters.TryGetValue("Method", out var method);
 
         if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentException("HTTP action requires a 'Url' parameter.", nameof(step));
+            throw new ArgumentException("HTTP action requires a Url parameter.", nameof(step));
 
         var request = new HttpRequestMessage(
-            new HttpMethod(method ?? "POST"),
-            url);
+            new HttpMethod(method ?? "POST"), url);
 
-        // Safely serialize whatever execution data exists on the instance
-        var payload = context.Instance.ExecutionData;   // Dictionary<string, object>
-        request.Content = JsonContent.Create(payload);
+        request.Content = JsonContent.Create(context.Instance.ExecutionData);
 
         var response = await client.SendAsync(request, ct);
-
-        // Non-2xx triggers Polly retry in the executor — this is intentional
         response.EnsureSuccessStatusCode();
     }
 }
