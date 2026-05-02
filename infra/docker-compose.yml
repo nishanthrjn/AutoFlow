@@ -1,4 +1,5 @@
-﻿services:
+services:
+
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: autoflow-mqtt
@@ -8,3 +9,24 @@
     volumes:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
     restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: autoflow-postgres
+    environment:
+      POSTGRES_DB:       autoflow
+      POSTGRES_USER:     autoflow
+      POSTGRES_PASSWORD: autoflow_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autoflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  postgres_data:
