@@ -19,6 +19,12 @@ public class InMemoryStepRepository : IStepRepository
 {
     private readonly Dictionary<string, List<StepStatus>> _store = new();
 
+    public Task SaveInstanceAsync(WorkflowInstance instance, CancellationToken ct)
+    {
+        Console.WriteLine($"  [Mem] Instance {instance.Id} saved");
+        return Task.CompletedTask;
+    }
+
     public Task WriteStateAsync(Guid instanceId, string stepId,
                                 StepStatus status, CancellationToken ct)
     {

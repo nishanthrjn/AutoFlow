@@ -13,6 +13,14 @@ public class PostgreSqlStepRepository : IStepRepository
         _contextFactory = contextFactory;
     }
 
+    public async Task SaveInstanceAsync(WorkflowInstance instance, CancellationToken ct)
+    {
+        await using var db = await _contextFactory.CreateDbContextAsync(ct);
+        db.WorkflowInstances.Add(instance);
+        await db.SaveChangesAsync(ct);
+        Console.WriteLine($"  [DB] Instance {instance.Id} saved");
+    }
+
     public async Task WriteStateAsync(
         Guid instanceId, string stepId,
         StepStatus status, CancellationToken ct)
@@ -30,15 +38,5 @@ public class PostgreSqlStepRepository : IStepRepository
 
         await db.SaveChangesAsync(ct);
         Console.WriteLine($"  [DB] {stepId} → {status} @ {DateTime.UtcNow:HH:mm:ss.fff}");
-    }
-
-    public async Task<List<StepStateEntry>> GetStepHistoryAsync(
-        Guid instanceId, CancellationToken ct)
-    {
-        await using var db = await _contextFactory.CreateDbContextAsync(ct);
-        return await db.StepStateEntries
-            .Where(e => e.InstanceId == instanceId)
-            .OrderBy(e => e.RecordedAt)
-            .ToListAsync(ct);
     }
 }

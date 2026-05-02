@@ -6,11 +6,11 @@ namespace AutoFlow.Engine;
 
 public class WorkflowExecutor
 {
-    private readonly IDependencyResolver         _resolver;
+    private readonly IDependencyResolver          _resolver;
     private readonly IEnumerable<IWorkflowAction> _actions;
-    private readonly IStepRepository             _repository;
-    private readonly ICompensationHandler        _compensation;
-    private readonly Func<int, TimeSpan>         _sleepDuration;
+    private readonly IStepRepository              _repository;
+    private readonly ICompensationHandler         _compensation;
+    private readonly Func<int, TimeSpan>          _sleepDuration;
 
     public WorkflowExecutor(
         IDependencyResolver          resolver,
@@ -32,6 +32,9 @@ public class WorkflowExecutor
         WorkflowInstance   instance,
         CancellationToken  ct = default)
     {
+        // Save instance FIRST — required before any step_state_entries can reference it
+        await _repository.SaveInstanceAsync(instance, ct);
+
         var batches = _resolver.GetExecutionBatches(definition);
         var context = new WorkflowContext(instance);
 
@@ -49,19 +52,16 @@ public class WorkflowExecutor
         await _repository.WriteStateAsync(
             instance.Id, step.Id, StepStatus.Running, ct);
 
+        var action = _actions.FirstOrDefault(a => a.ActionType == step.ActionType)
+            ?? throw new InvalidOperationException(
+                $"No action registered for type '{step.ActionType}'.");
+
         var retryPolicy = BuildRetryPolicy(instance, step, ct);
 
         try
         {
             await retryPolicy.ExecuteAsync(async () =>
-            {
-                // Clean dispatch — no reflection, no string.Contains
-                var action = _actions.FirstOrDefault(a => a.ActionType == step.ActionType)
-                    ?? throw new InvalidOperationException(
-                        $"No action registered for type '{step.ActionType}'.");
-
-                await action.ExecuteAsync(step, context, ct);
-            });
+                await action.ExecuteAsync(step, context, ct));
 
             await _repository.WriteStateAsync(
                 instance.Id, step.Id, StepStatus.Succeeded, ct);
