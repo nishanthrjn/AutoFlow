@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AutoFlow.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace AutoFlow.Engine.Persistence;
@@ -16,20 +17,37 @@ public class AutoFlowDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // JSON converters
         var jsonOptions = new JsonSerializerOptions();
 
+        // ── ExecutionData converter + comparer ───────────────────────────
         var executionDataConverter = new ValueConverter<Dictionary<string, object>, string>(
             v => JsonSerializer.Serialize(v, jsonOptions),
             v => JsonSerializer.Deserialize<Dictionary<string, object>>(v, jsonOptions)
                  ?? new Dictionary<string, object>());
 
+        var executionDataComparer = new ValueComparer<Dictionary<string, object>>(
+            (c1, c2) => JsonSerializer.Serialize(c1, jsonOptions) ==
+                        JsonSerializer.Serialize(c2, jsonOptions),
+            c => JsonSerializer.Serialize(c, jsonOptions).GetHashCode(),
+            c => JsonSerializer.Deserialize<Dictionary<string, object>>(
+                     JsonSerializer.Serialize(c, jsonOptions), jsonOptions)
+                 ?? new Dictionary<string, object>());
+
+        // ── Steps converter + comparer ───────────────────────────────────
         var stepsConverter = new ValueConverter<List<StepDefinition>, string>(
             v => JsonSerializer.Serialize(v, jsonOptions),
             v => JsonSerializer.Deserialize<List<StepDefinition>>(v, jsonOptions)
                  ?? new List<StepDefinition>());
 
-        // WorkflowDefinition
+        var stepsComparer = new ValueComparer<List<StepDefinition>>(
+            (c1, c2) => JsonSerializer.Serialize(c1, jsonOptions) ==
+                        JsonSerializer.Serialize(c2, jsonOptions),
+            c => JsonSerializer.Serialize(c, jsonOptions).GetHashCode(),
+            c => JsonSerializer.Deserialize<List<StepDefinition>>(
+                     JsonSerializer.Serialize(c, jsonOptions), jsonOptions)
+                 ?? new List<StepDefinition>());
+
+        // ── WorkflowDefinition ───────────────────────────────────────────
         modelBuilder.Entity<WorkflowDefinition>(b =>
         {
             b.ToTable("workflow_definitions");
@@ -41,10 +59,10 @@ public class AutoFlowDbContext : DbContext
             b.Property(x => x.Steps)
              .HasColumnName("steps")
              .HasColumnType("jsonb")
-             .HasConversion(stepsConverter);
+             .HasConversion(stepsConverter, stepsComparer);
         });
 
-        // WorkflowInstance
+        // ── WorkflowInstance ─────────────────────────────────────────────
         modelBuilder.Entity<WorkflowInstance>(b =>
         {
             b.ToTable("workflow_instances");
@@ -59,14 +77,14 @@ public class AutoFlowDbContext : DbContext
             b.Property(x => x.ExecutionData)
              .HasColumnName("execution_data")
              .HasColumnType("jsonb")
-             .HasConversion(executionDataConverter);
+             .HasConversion(executionDataConverter, executionDataComparer);
             b.HasMany(x => x.StepStateEntries)
              .WithOne(x => x.Instance)
              .HasForeignKey(x => x.InstanceId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // StepStateEntry
+        // ── StepStateEntry ───────────────────────────────────────────────
         modelBuilder.Entity<StepStateEntry>(b =>
         {
             b.ToTable("step_state_entries");
