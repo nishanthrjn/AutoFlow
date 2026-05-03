@@ -5,13 +5,12 @@ using AutoFlow.Domain.Enums;
 using AutoFlow.Engine;
 using AutoFlow.Engine.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Services ────────────────────────────────────────────────────────────────
-
-builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 
 var connectionString =
@@ -29,23 +28,21 @@ builder.Services.AddScoped<WorkflowQueryService>();
 
 var app = builder.Build();
 
-// ── Middleware ───────────────────────────────────────────────────────────────
-
-if (app.Environment.IsDevelopment())
-    app.MapOpenApi();
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
+{
+    options.Title = "AutoFlow API";
+    options.Theme = ScalarTheme.DeepSpace;
+});
 
 app.UseHttpsRedirection();
 
-// ── Endpoints ────────────────────────────────────────────────────────────────
-
-// GET /health
 app.MapGet("/health", () => new HealthResponse(
     Status:  "AutoFlow Engine Online",
     Time:    DateTime.UtcNow,
     Version: "1.0.0"
 )).WithName("GetHealth").WithTags("System");
 
-// GET /api/workflows/recent — last 20 workflow runs
 app.MapGet("/api/workflows/recent", async (
     WorkflowQueryService query,
     CancellationToken ct) =>
@@ -55,7 +52,6 @@ app.MapGet("/api/workflows/recent", async (
         i.Id, i.DefinitionId, i.Status.ToString(), i.CreatedAt)));
 }).WithName("GetRecentWorkflows").WithTags("Workflows");
 
-// GET /api/workflows/{instanceId} — single workflow status
 app.MapGet("/api/workflows/{instanceId:guid}", async (
     Guid instanceId,
     WorkflowQueryService query,
@@ -72,7 +68,6 @@ app.MapGet("/api/workflows/{instanceId:guid}", async (
         instance.CreatedAt));
 }).WithName("GetWorkflowInstance").WithTags("Workflows");
 
-// GET /api/workflows/{instanceId}/steps — full audit trail
 app.MapGet("/api/workflows/{instanceId:guid}/steps", async (
     Guid instanceId,
     WorkflowQueryService query,
@@ -86,11 +81,9 @@ app.MapGet("/api/workflows/{instanceId:guid}/steps", async (
         s.StepId, s.Status, s.RecordedAt, s.ErrorMessage)));
 }).WithName("GetWorkflowSteps").WithTags("Workflows");
 
-// POST /api/workflows/trigger — manually trigger a workflow
 app.MapPost("/api/workflows/trigger", async (
     TriggerWorkflowRequest request,
     WorkflowExecutor executor,
-    IStepRepository repository,
     CancellationToken ct) =>
 {
     var definition = new WorkflowDefinition
@@ -114,14 +107,14 @@ app.MapPost("/api/workflows/trigger", async (
 
     var instance = new WorkflowInstance
     {
-        Id           = Guid.NewGuid(),
-        DefinitionId = definition.Id,
-        Status       = WorkflowStatus.Pending,
+        Id            = Guid.NewGuid(),
+        DefinitionId  = definition.Id,
+        Status        = WorkflowStatus.Pending,
         ExecutionData = request.Data
     };
 
-    // Fire and forget — return immediately with instance ID
-    _ = Task.Run(() => executor.ExecuteWorkflowAsync(definition, instance, ct), ct);
+    _ = Task.Run(() =>
+        executor.ExecuteWorkflowAsync(definition, instance, ct), ct);
 
     return Results.Accepted($"/api/workflows/{instance.Id}",
         new WorkflowInstanceResponse(
