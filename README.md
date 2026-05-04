@@ -165,8 +165,9 @@ AutoFlow/
 ├── tests/
 │   └── AutoFlow.Engine.Tests/    # xUnit — DAG, state machine, saga tests
 └── infra/
-├── docker-compose.yml        # Mosquitto + PostgreSQL
-└── mosquitto/                # MQTT broker config
+    ├── docker-compose.yml        # Mosquitto + PostgreSQL
+    └── mosquitto/                # MQTT broker config
+
 
 ---
 
@@ -213,8 +214,7 @@ total: 4, failed: 0, succeeded: 4
 
 Most portfolio projects are CRUD apps. AutoFlow is an **engine** —
 a system with a runtime, a plugin model, fault tolerance, and a live
-IoT data pipeline. It directly mirrors what companies like Siemens,
-Bosch, and SAP build at enterprise scale under the Industrie 4.0 umbrella.
+IoT data pipeline.
 
 ---
 
