@@ -23,6 +23,7 @@ someone has to notice, create a ticket, alert the team, and log the event.
 
 ## Live Demo Flow
 
+```text
 CNC machine temperature spikes to 94°C
 ↓
 MQTT broker receives telemetry (Eclipse Mosquitto)
@@ -36,39 +37,39 @@ Step 1: HTTP action → POST alert   Running → Succeeded
 PostgreSQL records full audit trail with millisecond timestamps
 ↓
 REST API exposes workflow status + step history
-
 ---
-
+```
 ## Architecture
 
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                     Physical Edge                        │
 │   CNC Machine → Temperature / Vibration / RPM sensors   │
 └────────────────────────┬────────────────────────────────┘
-│ MQTT (MQTTnet)
+                         │ MQTT (MQTTnet)
 ┌────────────────────────▼────────────────────────────────┐
 │              Eclipse Mosquitto Broker                    │
 └────────────────────────┬────────────────────────────────┘
-│ Subscribe factory/+/+
+                         │ Subscribe factory/+/+
 ┌────────────────────────▼────────────────────────────────┐
 │              AutoFlow.Consumer (BackgroundService)       │
 │   • MQTT listener    • Anomaly detector                  │
 │   • Rule: temp > 90°C → trigger workflow                 │
 └────────────────────────┬────────────────────────────────┘
-│
+                         │
 ┌────────────────────────▼────────────────────────────────┐
 │              AutoFlow.Engine                             │
 │   • DAG executor     • Saga compensation                 │
 │   • Polly retry      • Plugin dispatcher                 │
 │   • IWorkflowAction  • IStepRepository                   │
 └──────────┬─────────────────────────────┬────────────────┘
-│                             │
+           │                             │
 ┌──────────▼──────────┐    ┌─────────────▼──────────────┐
 │   Plugin: HTTP      │    │   PostgreSQL (EF Core)      │
 │   POST alert        │    │   workflow_instances        │
 │   (extensible SDK)  │    │   step_state_entries        │
 └─────────────────────┘    └─────────────────────────────┘
-│
+                                         │
 ┌────────────────────────────────────────▼────────────────┐
 │              AutoFlow.Api (ASP.NET Core Minimal API)     │
 │   GET  /health                                           │
@@ -77,8 +78,7 @@ REST API exposes workflow status + step history
 │   POST /api/workflows/trigger                            │
 │   UI   /scalar/v1  (Scalar API explorer)                 │
 └─────────────────────────────────────────────────────────┘
-
----
+```
 
 ## Tech Stack
 
@@ -152,21 +152,23 @@ curl -X POST http://localhost:5031/api/workflows/trigger \
 
 ## Project Structure
 
+```text
 AutoFlow/
 ├── src/
 │   ├── AutoFlow.Domain/          # Entities, enums, domain model
 │   ├── AutoFlow.Engine/          # DAG executor, saga, Polly, plugins
-│   │   ├── Interfaces/           # IWorkflowAction, IStepRepository, etc.
+│   │   ├── Interfaces/           # IWorkflowAction, IStepRepository
 │   │   ├── Actions/              # HttpWorkflowAction (extensible SDK)
-│   │   └── Persistence/          # EF Core DbContext, PostgreSQL repository
+│   │   └── Persistence/          # EF Core DbContext, PostgreSQL repo
 │   ├── AutoFlow.Api/             # ASP.NET Core Minimal API + Scalar UI
 │   ├── AutoFlow.Consumer/        # MQTT listener + anomaly detector
 │   └── AutoFlow.Simulator/       # CNC machine telemetry simulator
 ├── tests/
-│   └── AutoFlow.Engine.Tests/    # xUnit — DAG, state machine, saga tests
+│   └── AutoFlow.Engine.Tests/    # xUnit, DAG, state machine, saga
 └── infra/
-├── docker-compose.yml        # Mosquitto + PostgreSQL
-└── mosquitto/                # MQTT broker config
+    ├── docker-compose.yml        # Mosquitto + PostgreSQL
+    └── mosquitto/                # MQTT broker config
+```
 
 ---
 
@@ -201,26 +203,25 @@ This mirrors how production workflow APIs handle long-running jobs.
 dotnet test
 ```
 
+```text
 total: 4, failed: 0, succeeded: 4
 ├── FailedStep_AfterRetries_TriggersCompensation
 ├── HappyPath_StepSucceeds_WritesSucceededState
 ├── DiamondDependency_BothBranchesCompleteBeforeD
 └── GetExecutionBatches_ShouldReturnParallelBatch_ForDiamondDAG
-
+```
 ---
 
 ## Why This Project
 
 Most portfolio projects are CRUD apps. AutoFlow is an **engine** —
 a system with a runtime, a plugin model, fault tolerance, and a live
-IoT data pipeline. It directly mirrors what companies like Siemens,
-Bosch, and SAP build at enterprise scale under the Industrie 4.0 umbrella.
+IoT data pipeline.
 
 ---
 
 ## Author
 
 **Nishanth Rajan** — Software Engineer
-📍 Hannover, Germany | EU Blue Card holder
 🔗 [linkedin.com/in/nishanthrajan](https://linkedin.com/in/nishanthrajan)
 🐙 [github.com/nishanthrjn/AutoFlow](https://github.com/nishanthrjn/AutoFlow)
