@@ -1,4 +1,5 @@
 using AutoFlow.Domain.Entities;
+using AutoFlow.Domain.Enums;
 using AutoFlow.Engine;
 using Xunit;
 
@@ -13,7 +14,8 @@ public class WorkflowExecutorTests
         var repository   = new InMemoryStepRepository();
         var compensation = new RecordingCompensationHandler();
         var resolver     = new FakeResolver(singleStep: "slack-notify");
-        var executor     = new WorkflowExecutor(resolver, action, repository, compensation);
+        var executor     = new WorkflowExecutor(resolver, new[] { action },
+                               repository, compensation, _ => TimeSpan.Zero);
 
         await Assert.ThrowsAsync<Exception>(() =>
             executor.ExecuteWorkflowAsync(TestData.SimpleWorkflow, TestData.NewInstance()));
@@ -34,7 +36,8 @@ public class WorkflowExecutorTests
         var repository   = new InMemoryStepRepository();
         var compensation = new RecordingCompensationHandler();
         var resolver     = new FakeResolver(singleStep: "step-1");
-        var executor     = new WorkflowExecutor(resolver, action, repository, compensation);
+        var executor     = new WorkflowExecutor(resolver, new[] { action },
+                               repository, compensation, _ => TimeSpan.Zero);
 
         await executor.ExecuteWorkflowAsync(TestData.SimpleWorkflow, TestData.NewInstance());
 
@@ -52,7 +55,8 @@ public class WorkflowExecutorTests
         var action       = new SuccessAction();
         var compensation = new RecordingCompensationHandler();
         var resolver     = new DiamondResolver();
-        var executor     = new WorkflowExecutor(resolver, action, repository, compensation);
+        var executor     = new WorkflowExecutor(resolver, new[] { action },
+                               repository, compensation, _ => TimeSpan.Zero);
 
         await executor.ExecuteWorkflowAsync(TestData.DiamondWorkflow, TestData.NewInstance());
 
@@ -70,12 +74,14 @@ public class WorkflowExecutorTests
 
 public class AlwaysFailingAction : IWorkflowAction
 {
+    public string ActionType => "Test";
     public Task ExecuteAsync(StepDefinition step, WorkflowContext context, CancellationToken ct)
         => throw new Exception("Simulated network failure");
 }
 
 public class SuccessAction : IWorkflowAction
 {
+    public string ActionType => "Test";
     public Task ExecuteAsync(StepDefinition step, WorkflowContext context, CancellationToken ct)
         => Task.CompletedTask;
 }
@@ -85,11 +91,13 @@ public class InMemoryStepRepository : IStepRepository
     private readonly Dictionary<string, List<StepStatus>> _perStep = new();
     private readonly List<(string StepId, StepStatus Status)> _globalTimeline = new();
 
+    public Task SaveInstanceAsync(WorkflowInstance instance, CancellationToken ct)
+        => Task.CompletedTask;
+
     public Task WriteStateAsync(Guid instanceId, string stepId,
                                 StepStatus status, CancellationToken ct)
     {
-        if (!_perStep.ContainsKey(stepId))
-            _perStep[stepId] = new();
+        if (!_perStep.ContainsKey(stepId)) _perStep[stepId] = new();
         _perStep[stepId].Add(status);
         _globalTimeline.Add((stepId, status));
         return Task.CompletedTask;
@@ -116,19 +124,23 @@ public class RecordingCompensationHandler : ICompensationHandler
 public class FakeResolver : IDependencyResolver
 {
     private readonly StepDefinition _step;
-    public FakeResolver(string singleStep) => _step = new StepDefinition { Id = singleStep };
-    public IReadOnlyList<IReadOnlyList<StepDefinition>> GetExecutionBatches(WorkflowDefinition definition)
+    public FakeResolver(string singleStep) =>
+        _step = new StepDefinition { Id = singleStep, ActionType = "Test" };
+    public IReadOnlyList<IReadOnlyList<StepDefinition>> GetExecutionBatches(
+        WorkflowDefinition definition)
         => new List<List<StepDefinition>> { new() { _step } };
 }
 
 public class DiamondResolver : IDependencyResolver
 {
-    public IReadOnlyList<IReadOnlyList<StepDefinition>> GetExecutionBatches(WorkflowDefinition definition)
+    public IReadOnlyList<IReadOnlyList<StepDefinition>> GetExecutionBatches(
+        WorkflowDefinition definition)
         => new List<List<StepDefinition>>
         {
-            new() { new StepDefinition { Id = "A" } },
-            new() { new StepDefinition { Id = "B" }, new StepDefinition { Id = "C" } },
-            new() { new StepDefinition { Id = "D" } }
+            new() { new StepDefinition { Id = "A", ActionType = "Test" } },
+            new() { new StepDefinition { Id = "B", ActionType = "Test" },
+                    new StepDefinition { Id = "C", ActionType = "Test" } },
+            new() { new StepDefinition { Id = "D", ActionType = "Test" } }
         };
 }
 
@@ -136,32 +148,32 @@ public static class TestData
 {
     public static WorkflowDefinition SimpleWorkflow => new()
     {
-        Id = "simple-wf",
-        Name = "Simple Workflow",
+        Id    = Guid.NewGuid(),
+        Name  = "Simple Workflow",
         Steps = new List<StepDefinition>
         {
-            new() { Id = "slack-notify" },
-            new() { Id = "step-1" }
+            new() { Id = "slack-notify", ActionType = "Test" },
+            new() { Id = "step-1",       ActionType = "Test" }
         }
     };
 
     public static WorkflowDefinition DiamondWorkflow => new()
     {
-        Id = "diamond-wf",
-        Name = "Diamond Workflow",
+        Id    = Guid.NewGuid(),
+        Name  = "Diamond Workflow",
         Steps = new List<StepDefinition>
         {
-            new() { Id = "A" },
-            new() { Id = "B", DependsOn = new List<string> { "A" } },
-            new() { Id = "C", DependsOn = new List<string> { "A" } },
-            new() { Id = "D", DependsOn = new List<string> { "B", "C" } }
+            new() { Id = "A", ActionType = "Test" },
+            new() { Id = "B", ActionType = "Test", DependsOn = new List<string> { "A" } },
+            new() { Id = "C", ActionType = "Test", DependsOn = new List<string> { "A" } },
+            new() { Id = "D", ActionType = "Test", DependsOn = new List<string> { "B", "C" } }
         }
     };
 
     public static WorkflowInstance NewInstance() => new()
     {
-        Id = Guid.NewGuid(),
-        WorkflowDefinitionId = "simple-wf",
-        Status = StepStatus.Pending
+        Id           = Guid.NewGuid(),
+        DefinitionId = Guid.NewGuid(),
+        Status       = WorkflowStatus.Pending
     };
 }

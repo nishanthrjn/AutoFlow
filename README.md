@@ -168,7 +168,6 @@ AutoFlow/
 └── infra/
     ├── docker-compose.yml        # Mosquitto + PostgreSQL
     └── mosquitto/                # MQTT broker config
-```
 
 ---
 
