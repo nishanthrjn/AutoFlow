@@ -170,7 +170,7 @@ AutoFlow/
     └── mosquitto/                # MQTT broker config
 
 ---
-
+```
 ## Key Engineering Decisions
 
 **DAG-based execution** — workflows are defined as directed acyclic graphs.
